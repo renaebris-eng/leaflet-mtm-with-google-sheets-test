@@ -4,7 +4,7 @@ Customize Leaflet maps with a linked Google Sheets template or CSV files and Geo
 ![Preview](preview.jpg)
 
 ## Live links (replace with your own)
-- Leaflet Map https://renaebris-eng.github.io/leaflet-mtm-with-google-sheets/
+- Leaflet Map https://renaebris-eng.github.io/leaflet-mtm-with-google-sheets-test/
 - Google Sheets template https://docs.google.com/spreadsheets/d/1Uh4khylvGQXegf22VDY-WvX7Y08Xbf9frta_xoXJfvI/edit?gid=0#gid=0
 
 ## Create your own
