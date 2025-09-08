@@ -182,35 +182,71 @@ var marker = L.marker([lat, lng], {
   Description: point.Description
 }).bindPopup(popupContent);
 
-  var group = L.featureGroup(markerArray);
-  var clusters = (getSetting('_markercluster') === 'on') ? true : false;
+// --- Combine all markers into a single feature group for search ---
+var allMarkers = L.featureGroup(markerArray);
 
-  // If no layer groups exist, add the feature group (possibly clustered) to the map
-  if (layers === undefined || layers.length === 0) {
-    if (clusters) {
-      var clusterGroup = L.markerClusterGroup({
-        maxClusterRadius: 10  // smaller number = less clustering
+// --- Create a unified search control ---
+var searchControl = new L.Control.Search({
+  layer: allMarkers,
+  propertyName: 'searchData',
+  initial: false,
+  zoom: false,
+  marker: false,
+  textPlaceholder: 'Search by Name, Vehicle, Description, or Location...',
+  textFormatter: function(marker) {
+    return marker.options.title || marker.Name || "";
+  },
+  moveToLocation: function(latlng, title, map) {
+    var marker = allMarkers.getLayers().find(function(m) {
+      return m.searchData && m.searchData.includes(title);
+    });
+
+    if (!marker) return;
+
+    if (clusterGroup) {
+      clusterGroup.zoomToShowLayer(marker, function() {
+        map.setView(marker.getLatLng(), 16);
+        marker.openPopup();
       });
-      clusterGroup.addLayer(group);
-      map.addLayer(clusterGroup);
     } else {
-      map.addLayer(group);
+      map.setView(marker.getLatLng(), 16);
+      marker.openPopup();
     }
-  } else {
-    if (clusters) {
-      // Multilayer cluster support
-      multilayerClusterSupport = L.markerClusterGroup.layerSupport({
-        maxClusterRadius: 10
-      });
-      multilayerClusterSupport.addTo(map);
+  }
+});
 
-      for (var lname in layers) {
-        if (!layers.hasOwnProperty(lname)) continue;
-        multilayerClusterSupport.checkIn(layers[lname]);
-        layers[lname].addTo(map);
-      }
+// Add the search control to the map
+map.addControl(searchControl);
+
+// --- Fallback to Nominatim if no local case is found ---
+searchControl.on('search:collapsed', function() {
+  if (!searchControl._input || !searchControl._input.value) return;
+  var query = searchControl._input.value.trim();
+  if (!query) return;
+
+  // Check if query matches any case
+  var found = allMarkers.getLayers().some(function(m) {
+    return m.searchData &&
+           m.searchData.toLowerCase().includes(query.toLowerCase());
+  });
+  if (found) return;
+
+  // If not found, search via Nominatim
+  L.Control.Geocoder.nominatim().geocode(query, function(results) {
+    if (results && results.length > 0) {
+      var r = results[0];
+      var latlng = r.center;
+
+      L.marker(latlng).addTo(map)
+        .bindPopup(r.name || r.html || query)
+        .openPopup();
+      map.setView(latlng, 14);
+    } else {
+      alert("No results found for: " + query);
     }
-    
+  });
+});
+
     var pos = (getSetting('_pointsLegendPos') == 'off')
       ? 'topleft'
       : getSetting('_pointsLegendPos');
@@ -695,32 +731,6 @@ var marker = L.marker([lat, lng], {
       loadAllGeojsons(0);
     } else {
       completePolygons = true;
-    }
-
-    // Add Nominatim Search control
-    if (getSetting('_mapSearch') !== 'off') {
-      var geocoder = L.Control.geocoder({
-        expand: 'click',
-        position: getSetting('_mapSearch'),
-        
-        geocoder: L.Control.Geocoder.nominatim({
-          geocodingQueryParams: {
-            viewbox: '',  // by default, viewbox is empty
-            bounded: 1,
-          }
-        }),
-      }).addTo(map);
-
-      function updateGeocoderBounds() {
-        var bounds = map.getBounds();
-        geocoder.options.geocoder.options.geocodingQueryParams.viewbox = [
-            bounds._southWest.lng, bounds._southWest.lat,
-            bounds._northEast.lng, bounds._northEast.lat
-          ].join(',');
-      }
-
-      // Update search viewbox coordinates every time the map moves
-      map.on('moveend', updateGeocoderBounds);
     }
 
     // Add location control
