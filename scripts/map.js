@@ -182,6 +182,47 @@ var marker = L.marker([lat, lng], {
   Description: point.Description
 }).bindPopup(popupContent);
 
+// --- Add to appropriate layer or directly to map ---
+if (point.Group && layers && layers[point.Group]) {
+  marker.addTo(layers[point.Group]);
+} else {
+  if (clusters) {
+    clusterGroup.addLayer(marker);
+  } else {
+    marker.addTo(map);
+  }
+}
+markerArray.push(marker);
+
+// --- Group and clustering setup ---
+var group = L.featureGroup(markerArray);
+var clusters = (getSetting('_markercluster') === 'on');
+
+if (layers === undefined || layers.length === 0) {
+  if (clusters) {
+    var clusterGroup = L.markerClusterGroup({
+      maxClusterRadius: 10
+    });
+    clusterGroup.addLayer(group);
+    map.addLayer(clusterGroup);
+  } else {
+    map.addLayer(group);
+  }
+} else {
+  if (clusters) {
+    multilayerClusterSupport = L.markerClusterGroup.layerSupport({
+      maxClusterRadius: 10
+    });
+    multilayerClusterSupport.addTo(map);
+
+    for (var lname in layers) {
+      if (!layers.hasOwnProperty(lname)) continue;
+      multilayerClusterSupport.checkIn(layers[lname]);
+      layers[lname].addTo(map);
+    }
+  }
+}
+
     var pos = (getSetting('_pointsLegendPos') == 'off')
       ? 'topleft'
       : getSetting('_pointsLegendPos');
