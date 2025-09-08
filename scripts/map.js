@@ -185,7 +185,7 @@ var marker = L.marker([lat, lng], {
 // --- Combine all markers into a single feature group for search ---
 var allMarkers = L.featureGroup(markerArray);
 
-// --- Build search control ---
+// --- Create a unified search control ---
 var searchControl = new L.Control.Search({
   layer: allMarkers,
   propertyName: 'searchData',
@@ -215,32 +215,28 @@ var searchControl = new L.Control.Search({
   }
 });
 
-// ✅ Add to map *before* attaching handlers
+// Add the search control to the map
 map.addControl(searchControl);
 
-// --- Local match highlight (optional) ---
-searchControl.on('search:locationfound', function(e) {
-  if (e.layer.setStyle) {
-    e.layer.setStyle({ fillColor: '#3f0', color: '#0f0' });
-  }
-});
-
-// --- Fallback to Nominatim if no case match ---
+// --- Fallback to Nominatim if no local case is found ---
 searchControl.on('search:collapsed', function() {
   if (!searchControl._input || !searchControl._input.value) return;
   var query = searchControl._input.value.trim();
   if (!query) return;
 
+  // Check if query matches any case
   var found = allMarkers.getLayers().some(function(m) {
     return m.searchData &&
            m.searchData.toLowerCase().includes(query.toLowerCase());
   });
   if (found) return;
 
+  // If not found, search via Nominatim
   L.Control.Geocoder.nominatim().geocode(query, function(results) {
     if (results && results.length > 0) {
       var r = results[0];
       var latlng = r.center;
+
       L.marker(latlng).addTo(map)
         .bindPopup(r.name || r.html || query)
         .openPopup();
@@ -735,32 +731,6 @@ searchControl.on('search:collapsed', function() {
       loadAllGeojsons(0);
     } else {
       completePolygons = true;
-    }
-
-    // Add Nominatim Search control
-    if (getSetting('_mapSearch') !== 'off') {
-      var geocoder = L.Control.geocoder({
-        expand: 'click',
-        position: getSetting('_mapSearch'),
-        
-        geocoder: L.Control.Geocoder.nominatim({
-          geocodingQueryParams: {
-            viewbox: '',  // by default, viewbox is empty
-            bounded: 1,
-          }
-        }),
-      }).addTo(map);
-
-      function updateGeocoderBounds() {
-        var bounds = map.getBounds();
-        geocoder.options.geocoder.options.geocodingQueryParams.viewbox = [
-            bounds._southWest.lng, bounds._southWest.lat,
-            bounds._northEast.lng, bounds._northEast.lat
-          ].join(',');
-      }
-
-      // Update search viewbox coordinates every time the map moves
-      map.on('moveend', updateGeocoderBounds);
     }
 
     // Add location control
