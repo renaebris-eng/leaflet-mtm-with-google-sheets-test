@@ -197,7 +197,7 @@ var searchControl = new L.Control.Search({
   // show only the Name in the suggestions
   textFormatter: function(marker) {
     return marker.options.title || marker.Name || "";
-  },
+  }
 
   moveToLocation: function(latlng, title, map) {
     // Find the marker that matches the search result
