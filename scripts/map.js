@@ -185,7 +185,7 @@ var marker = L.marker([lat, lng], {
 // --- Combine all markers into a single feature group for search ---
 var allMarkers = L.featureGroup(markerArray);
 
-// --- Add Leaflet Search control ---
+// --- Add Leaflet Search control (unified box) ---
 var searchControl = new L.Control.Search({
   layer: allMarkers,
   propertyName: 'searchData',
@@ -193,64 +193,68 @@ var searchControl = new L.Control.Search({
   zoom: false,
   marker: false,
   textPlaceholder: 'Search by Name, Vehicle, Description, or Location...',
-
-  // show only the Name in the suggestions
-  textFormatter: function(marker) {
-    return marker.options.title || marker.Name || "";
+  // Show only the Name in the suggestions
+  textFormatter: function (m) {
+    return (m && m.options && m.options.title) || m.Name || '';
   },
-
-  moveToLocation: function(latlng, title, map) {
-    // Find the marker that matches the search result
-    var marker = allMarkers.getLayers().find(function(m) {
-      return m.searchData && m.searchData.includes(title);
+  moveToLocation: function (latlng, title, map) {
+    var match = null;
+    allMarkers.eachLayer(function (m) {
+      if (!match && m.searchData && m.searchData.indexOf(title) !== -1) {
+        match = m;
+      }
     });
+    if (!match) { return; }
 
-    if (!marker) return; // safety check
-
-    if (clusterGroup) {
-      clusterGroup.zoomToShowLayer(marker, function() {
-        map.setView(marker.getLatLng(), 16);
-        marker.openPopup();
+    if (typeof clusterGroup !== 'undefined' && clusterGroup) {
+      clusterGroup.zoomToShowLayer(match, function () {
+        map.setView(match.getLatLng(), 16);
+        if (match.openPopup) { match.openPopup(); }
       });
     } else {
-      map.setView(marker.getLatLng(), 16);
-      marker.openPopup();
+      map.setView(match.getLatLng(), 16);
+      if (match.openPopup) { match.openPopup(); }
     }
   }
-}).on('search:locationfound', function(e) {
-  // optional: highlight marker on search
-  e.layer.setStyle({ fillColor: '#3f0', color: '#0f0' });
 });
 
-// 🚀 Custom handler: if no local match, query Nominatim via leaflet-control-geocoder
-searchControl.on('search:collapsed', async function(e) {
-  if (!searchControl._input || !searchControl._input.value) return;
-  var query = searchControl._input.value;
+map.addControl(searchControl);
 
-  // Did Leaflet Search already find a marker?
-  var found = allMarkers.getLayers().some(m =>
-    m.searchData && m.searchData.toLowerCase().includes(query.toLowerCase())
-  );
-  if (found) return; // we already zoomed to a case marker
+// If no local match, fall back to Nominatim via leaflet-control-geocoder
+searchControl.on('search:collapsed', function () {
+  var inputEl = searchControl._input;
+  if (!inputEl) { return; }
+  var query = (inputEl.value || '').trim();
+  if (!query) { return; }
 
-  // Otherwise, try Nominatim (Leaflet Control Geocoder)
-  L.Control.Geocoder.nominatim().geocode(query, function(results) {
-    if (results && results.length > 0) {
+  // Check if any case marker contains the query
+  var found = false;
+  allMarkers.eachLayer(function (m) {
+    if (!found && m.searchData &&
+        m.searchData.toLowerCase().indexOf(query.toLowerCase()) !== -1) {
+      found = true;
+    }
+  });
+  if (found) { return; }
+
+  // Geocode via Leaflet Control Geocoder (Nominatim)
+  var geocoder = L.Control.Geocoder.nominatim();
+  geocoder.geocode(query, function (results) {
+    if (results && results.length) {
       var r = results[0];
-      var latlng = r.center;
-
-      // Drop a pin + zoom
+      var latlng = r.center || L.latLng(
+        r.latitude || r.lat,
+        r.longitude || r.lng || r.lon
+      );
       L.marker(latlng).addTo(map)
         .bindPopup(r.name || r.html || query)
         .openPopup();
       map.setView(latlng, 14);
     } else {
-      alert("No results found for: " + query);
+      alert('No results found for: ' + query);
     }
   });
 });
-
-map.addControl(searchControl);
 
   var group = L.featureGroup(markerArray);
   var clusters = (getSetting('_markercluster') === 'on') ? true : false;
