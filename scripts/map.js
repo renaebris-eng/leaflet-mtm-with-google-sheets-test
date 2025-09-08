@@ -185,7 +185,7 @@ var marker = L.marker([lat, lng], {
 // --- Combine all markers into a single feature group for search ---
 var allMarkers = L.featureGroup(markerArray);
 
-// --- Add Leaflet Search control (unified box) ---
+// --- Build search control ---
 var searchControl = new L.Control.Search({
   layer: allMarkers,
   propertyName: 'searchData',
@@ -193,99 +193,63 @@ var searchControl = new L.Control.Search({
   zoom: false,
   marker: false,
   textPlaceholder: 'Search by Name, Vehicle, Description, or Location...',
-  // Show only the Name in the suggestions
-  textFormatter: function (m) {
-    return (m && m.options && m.options.title) || m.Name || '';
+  textFormatter: function(marker) {
+    return marker.options.title || marker.Name || "";
   },
-  moveToLocation: function (latlng, title, map) {
-    var match = null;
-    allMarkers.eachLayer(function (m) {
-      if (!match && m.searchData && m.searchData.indexOf(title) !== -1) {
-        match = m;
-      }
+  moveToLocation: function(latlng, title, map) {
+    var marker = allMarkers.getLayers().find(function(m) {
+      return m.searchData && m.searchData.includes(title);
     });
-    if (!match) { return; }
 
-    if (typeof clusterGroup !== 'undefined' && clusterGroup) {
-      clusterGroup.zoomToShowLayer(match, function () {
-        map.setView(match.getLatLng(), 16);
-        if (match.openPopup) { match.openPopup(); }
+    if (!marker) return;
+
+    if (clusterGroup) {
+      clusterGroup.zoomToShowLayer(marker, function() {
+        map.setView(marker.getLatLng(), 16);
+        marker.openPopup();
       });
     } else {
-      map.setView(match.getLatLng(), 16);
-      if (match.openPopup) { match.openPopup(); }
+      map.setView(marker.getLatLng(), 16);
+      marker.openPopup();
     }
   }
 });
 
+// ✅ Add to map *before* attaching handlers
 map.addControl(searchControl);
 
-// If no local match, fall back to Nominatim via leaflet-control-geocoder
-searchControl.on('search:collapsed', function () {
-  var inputEl = searchControl._input;
-  if (!inputEl) { return; }
-  var query = (inputEl.value || '').trim();
-  if (!query) { return; }
+// --- Local match highlight (optional) ---
+searchControl.on('search:locationfound', function(e) {
+  if (e.layer.setStyle) {
+    e.layer.setStyle({ fillColor: '#3f0', color: '#0f0' });
+  }
+});
 
-  // Check if any case marker contains the query
-  var found = false;
-  allMarkers.eachLayer(function (m) {
-    if (!found && m.searchData &&
-        m.searchData.toLowerCase().indexOf(query.toLowerCase()) !== -1) {
-      found = true;
-    }
+// --- Fallback to Nominatim if no case match ---
+searchControl.on('search:collapsed', function() {
+  if (!searchControl._input || !searchControl._input.value) return;
+  var query = searchControl._input.value.trim();
+  if (!query) return;
+
+  var found = allMarkers.getLayers().some(function(m) {
+    return m.searchData &&
+           m.searchData.toLowerCase().includes(query.toLowerCase());
   });
-  if (found) { return; }
+  if (found) return;
 
-  // Geocode via Leaflet Control Geocoder (Nominatim)
-  var geocoder = L.Control.Geocoder.nominatim();
-  geocoder.geocode(query, function (results) {
-    if (results && results.length) {
+  L.Control.Geocoder.nominatim().geocode(query, function(results) {
+    if (results && results.length > 0) {
       var r = results[0];
-      var latlng = r.center || L.latLng(
-        r.latitude || r.lat,
-        r.longitude || r.lng || r.lon
-      );
+      var latlng = r.center;
       L.marker(latlng).addTo(map)
         .bindPopup(r.name || r.html || query)
         .openPopup();
       map.setView(latlng, 14);
     } else {
-      alert('No results found for: ' + query);
+      alert("No results found for: " + query);
     }
   });
 });
-
-  var group = L.featureGroup(markerArray);
-  var clusters = (getSetting('_markercluster') === 'on') ? true : false;
-
-  // If no layer groups exist, add the feature group (possibly clustered) to the map
-  if (layers === undefined || layers.length === 0) {
-    if (clusters) {
-      var clusterGroup = L.markerClusterGroup({
-        maxClusterRadius: 10  // smaller number = less clustering
-      });
-      clusterGroup.addLayer(group);
-      map.addLayer(clusterGroup);
-    } else {
-      map.addLayer(group);
-    }
-  } else {
-    if (clusters) {
-      // Multilayer cluster support
-      multilayerClusterSupport = L.markerClusterGroup.layerSupport({
-        maxClusterRadius: 10
-      });
-      multilayerClusterSupport.addTo(map);
-
-      for (var lname in layers) {
-        if (!layers.hasOwnProperty(lname)) continue;
-        multilayerClusterSupport.checkIn(layers[lname]);
-        layers[lname].addTo(map);
-      }
-    }
-    
-map.addControl(searchControl);
 
     var pos = (getSetting('_pointsLegendPos') == 'off')
       ? 'topleft'
