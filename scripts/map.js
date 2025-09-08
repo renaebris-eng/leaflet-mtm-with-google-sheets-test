@@ -182,54 +182,22 @@ var marker = L.marker([lat, lng], {
   Description: point.Description
 }).bindPopup(popupContent);
 
-// Small helper to clean text
-function cleanText(str) {
-  return (str || "").replace(/\s+/g, " ").trim();
-}
-    
-// Add a combined search string
-marker.searchData =
-  cleanText(point.Name) + " " +
-  cleanText(point.Vehicle) + " " +
-  cleanText(point.Description);
-
-// Ensure the marker has a feature object for Leaflet Search
-if (!marker.feature) marker.feature = { type: "Feature", properties: {} };
-marker.feature.properties.searchData = marker.searchData;
-
-// Debug log
-console.log("Marker created:", marker.options.title, "searchData:", marker.searchData);
-
-// Add to appropriate layer or directly to map
-if (point.Group && layers && layers[point.Group]) {
-  marker.addTo(layers[point.Group]);
-} else {
-  if (clusters) {
-    clusterGroup.addLayer(marker);
-  } else {
-    marker.addTo(map);
-  }
-}
-markerArray.push(marker);
-}
-
 // --- Combine all markers into a single feature group for search ---
 var allMarkers = L.featureGroup(markerArray);
 
-// --- Add Leaflet Search control --- 219
+// --- Add Leaflet Search control ---
 var searchControl = new L.Control.Search({
   layer: allMarkers,
-  propertyName: 'searchData',   // Tells Leaflet Search what to match
+  propertyName: 'searchData',
   initial: false,
-  zoom: false,                  // we’ll control zoom manually
+  zoom: false,
   marker: false,
-  textPlaceholder: 'Search by Name, Vehicle, or Description...',
+  textPlaceholder: 'Search by Name, Vehicle, Description, or Location...',
 
-    // show only the Name in the suggestions
-    textFormatter: function(marker) {
-      return marker.options.title || marker.Name || "";  
-      // make sure your marker has a "title" or "Name" property
-    },
+  // show only the Name in the suggestions
+  textFormatter: function(marker) {
+    return marker.options.title || marker.Name || "";
+  },
 
   moveToLocation: function(latlng, title, map) {
     // Find the marker that matches the search result
@@ -237,19 +205,49 @@ var searchControl = new L.Control.Search({
       return m.searchData && m.searchData.includes(title);
     });
 
-
     if (!marker) return; // safety check
 
     if (clusterGroup) {
       clusterGroup.zoomToShowLayer(marker, function() {
-        map.setView(marker.getLatLng(), 16);  // 👈 zoom FIRST
-        marker.openPopup();                   // 👈 then open popup
+        map.setView(marker.getLatLng(), 16);
+        marker.openPopup();
       });
     } else {
       map.setView(marker.getLatLng(), 16);
       marker.openPopup();
     }
   }
+}).on('search:locationfound', function(e) {
+  // optional: highlight marker on search
+  e.layer.setStyle({ fillColor: '#3f0', color: '#0f0' });
+});
+
+// 🚀 Custom handler: if no local match, query Nominatim via leaflet-control-geocoder
+searchControl.on('search:collapsed', async function(e) {
+  if (!searchControl._input || !searchControl._input.value) return;
+  var query = searchControl._input.value;
+
+  // Did Leaflet Search already find a marker?
+  var found = allMarkers.getLayers().some(m =>
+    m.searchData && m.searchData.toLowerCase().includes(query.toLowerCase())
+  );
+  if (found) return; // we already zoomed to a case marker
+
+  // Otherwise, try Nominatim (Leaflet Control Geocoder)
+  L.Control.Geocoder.nominatim().geocode(query, function(results) {
+    if (results && results.length > 0) {
+      var r = results[0];
+      var latlng = r.center;
+
+      // Drop a pin + zoom
+      L.marker(latlng).addTo(map)
+        .bindPopup(r.name || r.html || query)
+        .openPopup();
+      map.setView(latlng, 14);
+    } else {
+      alert("No results found for: " + query);
+    }
+  });
 });
 
 map.addControl(searchControl);
