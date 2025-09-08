@@ -211,8 +211,6 @@ var marker = L.marker([lat, lng], {
       }
     }
     
-map.addControl(searchControl);
-
     var pos = (getSetting('_pointsLegendPos') == 'off')
       ? 'topleft'
       : getSetting('_pointsLegendPos');
