@@ -182,6 +182,15 @@ var marker = L.marker([lat, lng], {
   Description: point.Description
 }).bindPopup(popupContent);
 
+    // --- Marker search data ---
+marker.searchData =
+  cleanText(point.Name) + " " +
+  cleanText(point.Vehicle) + " " +
+  cleanText(point.Description);
+
+if (!marker.feature) marker.feature = { type: "Feature", properties: {} };
+marker.feature.properties.searchData = marker.searchData;
+
 // Add to appropriate layer or directly to map
 if (point.Group && layers && layers[point.Group]) {
   marker.addTo(layers[point.Group]);
