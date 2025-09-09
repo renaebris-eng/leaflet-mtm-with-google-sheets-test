@@ -282,8 +282,6 @@ map.addControl(searchControl);
         layers[lname].addTo(map);
       }
     }
-    
-map.addControl(searchControl);
 
     var pos = (getSetting('_pointsLegendPos') == 'off')
       ? 'topleft'
