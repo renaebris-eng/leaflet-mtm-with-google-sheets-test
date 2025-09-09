@@ -182,6 +182,10 @@ var marker = L.marker([lat, lng], {
   Description: point.Description
 }).bindPopup(popupContent);
 
+    // Small helper to clean text
+function cleanText(str) {
+  return (str || "").replace(/\s+/g, " ").trim();
+}
     // --- Marker search data ---
 marker.searchData =
   cleanText(point.Name) + " " +
