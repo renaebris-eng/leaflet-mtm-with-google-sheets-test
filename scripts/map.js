@@ -208,6 +208,47 @@ if (point.Group && layers && layers[point.Group]) {
 markerArray.push(marker);
 }
 
+  // --- Combine all markers into a single feature group for search ---
+var allMarkers = L.featureGroup(markerArray);
+
+// --- Custom merged search control ---
+var mergedSearch = new L.Control.Search({
+  layer: allMarkers,
+  propertyName: 'searchData',
+  initial: false,
+  zoom: false,
+  marker: false,
+  textPlaceholder: 'Search by Name, Vehicle, Description, or Place...',
+  moveToLocation: function(latlng, title, map) {
+    var marker = allMarkers.getLayers().find(function(m) {
+      return m.searchData && m.searchData.includes(title);
+    });
+
+    if (marker) {
+      if (clusterGroup) {
+        clusterGroup.zoomToShowLayer(marker, function() {
+          map.setView(marker.getLatLng(), 16);
+          marker.openPopup();
+        });
+      } else {
+        map.setView(marker.getLatLng(), 16);
+        marker.openPopup();
+      }
+    } else {
+      // fallback to Nominatim if no marker matches
+      L.Control.Geocoder.nominatim().geocode(title, function(results) {
+        if (results && results.length > 0) {
+          var r = results[0];
+          map.setView(r.center, 14);
+          L.popup().setLatLng(r.center).setContent(r.name).openOn(map);
+        }
+      });
+    }
+  }
+});
+
+map.addControl(mergedSearch);
+
   var group = L.featureGroup(markerArray);
   var clusters = (getSetting('_markercluster') === 'on') ? true : false;
 
