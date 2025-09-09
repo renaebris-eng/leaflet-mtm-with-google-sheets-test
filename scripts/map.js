@@ -723,31 +723,47 @@ markerArray.push(marker);
       completePolygons = true;
     }
 
-    // Add Nominatim Search control
-    if (getSetting('_mapSearch') !== 'off') {
-      var geocoder = L.Control.geocoder({
-        expand: 'click',
-        position: getSetting('_mapSearch'),
-        
-        geocoder: L.Control.Geocoder.nominatim({
-          geocodingQueryParams: {
-            viewbox: '',  // by default, viewbox is empty
-            bounded: 1,
-          }
-        }),
-      }).addTo(map);
+// --- Combine all markers into a single feature group for search ---
+var allMarkers = L.featureGroup(markerArray);
 
-      function updateGeocoderBounds() {
-        var bounds = map.getBounds();
-        geocoder.options.geocoder.options.geocodingQueryParams.viewbox = [
-            bounds._southWest.lng, bounds._southWest.lat,
-            bounds._northEast.lng, bounds._northEast.lat
-          ].join(',');
+// --- Custom merged search control ---
+var mergedSearch = new L.Control.Search({
+  layer: allMarkers,
+  propertyName: 'searchData',
+  initial: false,
+  zoom: false,
+  marker: false,
+  textPlaceholder: 'Search by Name, Vehicle, Description, or Place...',
+  moveToLocation: function(latlng, title, map) {
+    var marker = allMarkers.getLayers().find(function(m) {
+      return m.searchData && m.searchData.includes(title);
+    });
+
+    if (marker) {
+      if (clusterGroup) {
+        clusterGroup.zoomToShowLayer(marker, function() {
+          map.setView(marker.getLatLng(), 16);
+          marker.openPopup();
+        });
+      } else {
+        map.setView(marker.getLatLng(), 16);
+        marker.openPopup();
       }
-
-      // Update search viewbox coordinates every time the map moves
-      map.on('moveend', updateGeocoderBounds);
+    } else {
+      // fallback to Nominatim if no marker matches
+      L.Control.Geocoder.nominatim().geocode(title, function(results) {
+        if (results && results.length > 0) {
+          var r = results[0];
+          map.setView(r.center, 14);
+          L.popup().setLatLng(r.center).setContent(r.name).openOn(map);
+        }
+      });
     }
+  }
+});
+
+map.addControl(mergedSearch);
+
 
     // Add location control
     if (getSetting('_mapMyLocation') !== 'off') {
