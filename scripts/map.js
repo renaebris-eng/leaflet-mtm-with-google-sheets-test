@@ -208,7 +208,7 @@ if (point.Group && layers && layers[point.Group]) {
 markerArray.push(marker);
 }
 
-  // --- Combine all markers into a single feature group for search ---
+// --- Combine all markers into a single feature group for search ---
 var allMarkers = L.featureGroup(markerArray);
 
 // --- Custom merged search control ---
@@ -220,6 +220,7 @@ var mergedSearch = new L.Control.Search({
   marker: false,
   textPlaceholder: 'Search by Name, Vehicle, Description, or Place...',
   moveToLocation: function(latlng, title, map) {
+    // First try to find a marker match
     var marker = allMarkers.getLayers().find(function(m) {
       return m.searchData && m.searchData.includes(title);
     });
@@ -235,7 +236,7 @@ var mergedSearch = new L.Control.Search({
         marker.openPopup();
       }
     } else {
-      // fallback to Nominatim if no marker matches
+      // If no marker matched, fallback to Nominatim
       L.Control.Geocoder.nominatim().geocode(title, function(results) {
         if (results && results.length > 0) {
           var r = results[0];
@@ -248,6 +249,35 @@ var mergedSearch = new L.Control.Search({
 });
 
 map.addControl(mergedSearch);
+
+// --- Fallback: when no suggestions appear, run Nominatim ---
+mergedSearch.on('search:locationfound', function(e) {
+  // this fires only for marker matches
+});
+
+// catch manual input where no marker suggestions exist
+mergedSearch._input.addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') {
+    var query = mergedSearch._input.value;
+    if (!query) return;
+
+    // Check if any markers match
+    var markerMatch = allMarkers.getLayers().some(function(m) {
+      return m.searchData && m.searchData.includes(query);
+    });
+
+    if (!markerMatch) {
+      // Run Nominatim directly
+      L.Control.Geocoder.nominatim().geocode(query, function(results) {
+        if (results && results.length > 0) {
+          var r = results[0];
+          map.setView(r.center, 14);
+          L.popup().setLatLng(r.center).setContent(r.name).openOn(map);
+        }
+      });
+    }
+  }
+});
 
   var group = L.featureGroup(markerArray);
   var clusters = (getSetting('_markercluster') === 'on') ? true : false;
