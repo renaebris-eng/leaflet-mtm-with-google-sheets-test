@@ -219,6 +219,12 @@ var mergedSearch = new L.Control.Search({
   zoom: false,
   marker: false,
   textPlaceholder: 'Search by Name, Vehicle, Description, or Place...',
+  textErr: '',  // 👈 hides "Location not found"
+  
+  textFormatter: function(marker) {
+    return marker.options.title || marker.Name || "";
+  },
+
   moveToLocation: function(latlng, title, map) {
     // First try to find a marker match
     var marker = allMarkers.getLayers().find(function(m) {
