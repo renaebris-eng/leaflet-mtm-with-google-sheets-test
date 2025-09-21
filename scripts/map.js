@@ -1051,6 +1051,12 @@ mergedSearch._input.addEventListener('keydown', function(e) {
    */
   function changeAttribution() {
     var attributionHTML = $('.leaflet-control-attribution')[0].innerHTML;
+
+      attributionHTML = attributionHTML.replace(
+    /Tiles © Esri.*Community/,
+    'Imagery © Esri & contributors'
+  );
+
     var credit = 'View <a href="' + googleDocURL + '" target="_blank">data</a>';
     var name = getSetting('_authorName');
     var url = getSetting('_authorURL');
