@@ -166,14 +166,14 @@ function mapPoints(points, layers) {
       });
     }
 
-    // Popup content with safe fallbacks
-    var popupContent = `
-      <b>${point['Name'] || ''}</b><br>
-      ${point['Image'] ? ('<img src="' + point['Image'] + '"><br>') : ''}
-      <b>Vehicle:</b> ${point['Vehicle'] || ''}<br>
-      ${point['Description'] || ''}<br>
-      ${sourcesLinks ? '<br>' + sourcesLinks : ''}
-    `;
+// Popup content with safe fallbacks
+var popupContent = `
+  <b>${point['Name'] || ''}</b><br>
+  ${point['Image'] ? ('<img src="' + point['Image'] + '" style="max-width:150px; height:auto; display:block; margin:5px 0;"><br>') : ''}
+  <b>Vehicle:</b> ${point['Vehicle'] || ''}<br>
+  ${point['Description'] || ''}<br>
+  ${sourcesLinks ? '<br>' + sourcesLinks : ''}
+`;
 // Create the marker with validated coords
 var marker = L.marker([lat, lng], { 
   icon: icon,
