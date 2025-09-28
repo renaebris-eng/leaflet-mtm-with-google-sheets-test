@@ -169,7 +169,7 @@ function mapPoints(points, layers) {
 // Popup content with safe fallbacks
 var popupContent = `
   <b>${point['Name'] || ''}</b><br>
-  ${point['Image'] ? ('<img src="' + point['Image'] + '" style="max-width:200px; max-height:120px; width:auto; height:auto; display:block; margin:5px 0;"><br>') : ''}
+  ${point['Image'] ? ('<img src="' + point['Image'] + '" style="max-width:400px; max-height:320px; width:auto; height:auto; display:block; margin:5px 0;"><br>') : ''}
   <b>Vehicle:</b> ${point['Vehicle'] || ''}<br>
   ${point['Description'] || ''}<br>
   ${sourcesLinks ? '<br>' + sourcesLinks : ''}
